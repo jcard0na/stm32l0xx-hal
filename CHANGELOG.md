@@ -15,6 +15,8 @@ forget to update the links at the bottom of the changelog as well.-->
 
 ### Breaking Changes
 
+- Allow selection of RTC clock source to be LSE or LSI ([#218])
+
 ### Non-Breaking Changes
 
 ### Fixes
