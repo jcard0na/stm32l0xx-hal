@@ -24,9 +24,9 @@ fn main() -> ! {
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range0));
     let mut exti = Exti::new(dp.EXTI);
     let mut pwr = PWR::new(dp.PWR, &mut rcc);
-    let gpiob = dp.GPIOB.split(&mut rcc);
+    let gpioa = dp.GPIOA.split(&mut rcc);
 
-    let mut led = gpiob.pb2.into_push_pull_output().downgrade();
+    let mut led = gpioa.pa7.into_push_pull_output().downgrade();
 
     // Initialize RTC
     let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, None).unwrap();
@@ -87,6 +87,9 @@ fn main() -> ! {
     );
     timer.wait().unwrap(); // returns immediately; we just got the interrupt
 
+    // signal that we are entering standby mode
+    blink(&mut led);
+    blink(&mut led);
     blink(&mut led);
 
     // 5 seconds of standby mode
