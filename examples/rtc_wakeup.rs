@@ -21,9 +21,10 @@ fn main() -> ! {
     let mut rcc = dp.RCC.freeze(rcc::Config::hsi16());
 
     // Initialize all the GPIO we need
+    let gpioa = dp.GPIOA.split(&mut rcc);
     let gpiob = dp.GPIOB.split(&mut rcc);
-    let mut led = gpiob.pb6.into_push_pull_output();
-    let button = gpiob.pb2.into_pull_down_input();
+    let mut led = gpioa.pa7.into_push_pull_output();
+    let button = gpiob.pb12.into_pull_down_input();
 
     // Enable LED to signal that MCU is running
     led.set_high().unwrap();
