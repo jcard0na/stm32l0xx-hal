@@ -20,11 +20,11 @@ fn main() -> ! {
     let gpioa = dp.GPIOA.split(&mut rcc);
     let gpiob = dp.GPIOB.split(&mut rcc);
 
-    // Configure PA0 as input.
-    let button = gpioa.pa0.into_pull_up_input();
+    // Configure PB12 as input.
+    let button = gpiob.pb12.into_pull_up_input();
 
-    // Configure PB6 as output.
-    let mut led = gpiob.pb6.into_push_pull_output();
+    // Configure PA7 as output.
+    let mut led = gpioa.pa7.into_push_pull_output();
 
     // Get the delay provider.
     let mut delay = cp.SYST.delay(rcc.clocks);
