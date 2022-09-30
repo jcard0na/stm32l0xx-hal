@@ -18,8 +18,8 @@ fn main() -> ! {
     // the RCC register.
     let gpioa = dp.GPIOA.split(&mut rcc);
 
-    // Configure PA1 as output.
-    let mut led = gpioa.pa1.into_push_pull_output();
+    // Configure PA7 as output.
+    let mut led = gpioa.pa7.into_push_pull_output();
 
     loop {
         // Set the LED high one million times in a row.
