@@ -30,10 +30,10 @@ fn main() -> ! {
     // the RCC register.
     let gpioa = dp.GPIOA.split(&mut rcc);
 
-    // Configure PA1 as output, using a downgraded Pin which can
+    // Configure PA7 as output, using a downgraded Pin which can
     // be put into an array of different pin types.
     let mut matrix = Matrix {
-        leds: [gpioa.pa1.into_push_pull_output().downgrade()],
+        leds: [gpioa.pa7.into_push_pull_output().downgrade()],
     };
 
     loop {
