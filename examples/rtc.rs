@@ -12,10 +12,9 @@
 #![no_std]
 
 extern crate panic_semihosting;
-
-use core::fmt::Write;
-
+use cortex_m_semihosting::hprintln;
 use cortex_m_rt::entry;
+
 use stm32l0xx_hal::{
     pac,
     prelude::*,
@@ -31,10 +30,9 @@ fn main() -> ! {
 
     let mut rcc = dp.RCC.freeze(rcc::Config::hsi16());
     let mut pwr = PWR::new(dp.PWR, &mut rcc);
-    let gpioa = dp.GPIOA.split(&mut rcc);
     let gpiob = dp.GPIOB.split(&mut rcc);
 
-    let button = gpiob.pb2.into_floating_input();
+    let _button = gpiob.pb12.into_floating_input();
 
     let serial = dp
         .USART2
@@ -60,23 +58,10 @@ fn main() -> ! {
     let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, instant);
 
     loop {
-        let mut instant = rtc.now();
+        let instant = rtc.now();
 
-        if button.is_low().unwrap() {
-            let second = instant.second() + 1;
-
-            instant = if second < 60 {
-                instant.set_second(second)
-            } else {
-                instant.set_second(0)
-            };
-
-            rtc.set(instant);
-        }
-
-        write!(
-            tx,
-            "20{:02}-{:02}-{:02} {:02}:{:02}:{:02}\r\n",
+        hprintln!(
+            "{:02}-{:02}-{:02} {:02}:{:02}:{:02}",
             instant.year(),
             instant.month(),
             instant.day(),
