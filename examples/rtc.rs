@@ -20,8 +20,7 @@ use stm32l0xx_hal::{
     prelude::*,
     pwr::PWR,
     rcc,
-    rtc::{ClockSource, Instant, Rtc},
-    serial,
+    rtc::{ClockSource, Rtc, Timelike, Datelike},
 };
 
 #[entry]
@@ -29,33 +28,14 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     let mut rcc = dp.RCC.freeze(rcc::Config::hsi16());
-    let mut pwr = PWR::new(dp.PWR, &mut rcc);
+    let pwr = PWR::new(dp.PWR, &mut rcc);
     let gpiob = dp.GPIOB.split(&mut rcc);
 
     let _button = gpiob.pb12.into_floating_input();
 
-    let serial = dp
-        .USART2
-        .usart(
-            gpioa.pa2,
-            gpioa.pa3,
-            serial::Config::default().baudrate(115_200.bps()),
-            &mut rcc,
-        )
-        .unwrap();
-    let (mut tx, _) = serial.split();
-
-    let instant = Instant::new()
-        .set_year(19)
-        .set_month(8)
-        .set_day(9)
-        .set_hour(13)
-        .set_minute(36)
-        .set_second(0);
-
     // If the target hardware has an external crystal, ClockSource::LSE can be used
     // instead of ClockSource::LSI for greater accuracy
-    let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, instant);
+    let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, None).unwrap();
 
     loop {
         let instant = rtc.now();
@@ -68,7 +48,6 @@ fn main() -> ! {
             instant.hour(),
             instant.minute(),
             instant.second(),
-        )
-        .unwrap();
+        );
     }
 }
