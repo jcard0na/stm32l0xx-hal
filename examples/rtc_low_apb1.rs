@@ -24,9 +24,16 @@ fn main() -> ! {
     // special handling in the RTC code.
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range0));
     let pwr = PWR::new(dp.PWR, &mut rcc);
-    let gpiob = dp.GPIOB.split(&mut rcc);
+    let gpioa = dp.GPIOA.split(&mut rcc);
 
-    let mut led = gpiob.pb5.into_push_pull_output();
+    let mut led = gpioa.pa7.into_push_pull_output();
+    // Signal start
+    for _ in 0..10 {
+        led.toggle();
+        for _ in 0..1000 {
+            asm::nop()
+        }
+    }
 
     // Initialize RTC
     let init = NaiveDate::from_ymd(2019, 8, 9).and_hms(13, 37, 42);
@@ -44,7 +51,7 @@ fn main() -> ! {
             // Given the clock settings above, this gives a good blinking going
             // if compiled in release mode.
             led.set_high().unwrap();
-            for _ in 0..100 {
+            for _ in 0..1 {
                 asm::nop()
             }
             led.set_low().unwrap();
