@@ -27,11 +27,12 @@ fn main() -> ! {
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range0));
     let mut exti = Exti::new(dp.EXTI);
     let mut pwr = PWR::new(dp.PWR, &mut rcc);
-    let gpiob = dp.GPIOB.split(&mut rcc);
+    let gpioa = dp.GPIOA.split(&mut rcc);
 
-    let mut led = gpiob.pb2.into_push_pull_output().downgrade();
+    let mut led = gpioa.pa8.into_push_pull_output().downgrade();
+    led.set_high().unwrap();
 
-    let mut lptim = LpTimer::init_periodic(dp.LPTIM, &mut pwr, &mut rcc, ClockSrc::Lse);
+    let mut lptim = LpTimer::init_periodic(dp.LPTIM, &mut pwr, &mut rcc, ClockSrc::Lsi);
 
     let exti_line = DirectLine::Lptim1;
 
