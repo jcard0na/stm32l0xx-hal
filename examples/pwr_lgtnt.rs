@@ -1,10 +1,11 @@
 #![no_main]
 #![no_std]
 
-extern crate panic_halt;
+use panic_halt as _; // you can put a breakpoint on `rust_begin_unwind` to catch panics
 
 use cortex_m::asm;
 use cortex_m_rt::entry;
+// use cortex_m_semihosting::hprintln;
 use stm32l0xx_hal::{
     exti::{ConfigurableLine, Exti, TriggerEdge},
     gpio::{Output, Pin, PushPull},
@@ -25,7 +26,7 @@ fn main() -> ! {
     let dp = pac::Peripherals::take().unwrap();
 
     let mut scb = cp.SCB;
-    let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range0));
+    let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range6));
     let mut exti = Exti::new(dp.EXTI);
     let mut pwr = PWR::new(dp.PWR, &mut rcc);
     let gpioa = dp.GPIOA.split(&mut rcc);
@@ -36,7 +37,7 @@ fn main() -> ! {
     let sck = gpiob.pb3;
     let miso = gpiob.pb4;
     let mosi = gpiob.pb5;
-    let cs_flash = gpiob.pb6.into_push_pull_output();
+    let mut cs_flash = gpiob.pb6.into_push_pull_output();
 
     supercap_read_en.set_low().unwrap();
 
@@ -44,14 +45,22 @@ fn main() -> ! {
         .SPI1
         .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
 
-    // let mut spi2 = p
-    //     .SPI2
-    //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
+    // // let mut spi2 = p
+    // //     .SPI2
+    // //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
 
+    cs_flash.set_low().unwrap();
+    // hprintln!("one");
+    blink(&mut led);
+    cs_flash.set_high().unwrap();
     let flash = Flash::init(spi, cs_flash);
+    blink(&mut led);
     let mut flash = flash.unwrap();
+    blink(&mut led);
     flash.wakeup().unwrap();
+    blink(&mut led);
     flash.sleep().unwrap();
+    blink(&mut led);
 
     // Initialize RTC
     let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, None).unwrap();
@@ -67,7 +76,7 @@ fn main() -> ! {
     let mut timer = rtc.wakeup_timer();
 
     // Blink twice to signal the start of the program
-    blink(&mut led);
+    // blink(&mut led);
     blink(&mut led);
 
     // // 5 seconds of regular run mode
@@ -140,7 +149,7 @@ fn delay() {
     // We can't use `Delay`, as that requires a frequency of at least one MHz.
     // Given our clock selection, the following loop should give us a nice delay
     // when compiled in release mode.
-    for _ in 0..1_000 {
+    for _ in 0..100_000 {
         asm::nop()
     }
 }

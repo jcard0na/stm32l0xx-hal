@@ -13,7 +13,11 @@ use stm32l0xx_hal::{
     pwr::{self, PWR},
     rcc,
     rtc::{self, ClockSource, Rtc},
+    spi::MODE_0,
 };
+
+
+use spi_memory::series25::Flash;
 
 #[entry]
 fn main() -> ! {
@@ -25,8 +29,29 @@ fn main() -> ! {
     let mut exti = Exti::new(dp.EXTI);
     let mut pwr = PWR::new(dp.PWR, &mut rcc);
     let gpioa = dp.GPIOA.split(&mut rcc);
+    let gpiob = dp.GPIOB.split(&mut rcc);
 
+    let mut supercap_read_en = gpioa.pa4.into_push_pull_output().downgrade();
     let mut led = gpioa.pa7.into_push_pull_output().downgrade();
+    let sck = gpiob.pb3;
+    let miso = gpiob.pb4;
+    let mosi = gpiob.pb5;
+    let mut cs_flash = gpiob.pb6.into_push_pull_output();
+
+    supercap_read_en.set_low().unwrap();
+
+    let spi = dp
+        .SPI1
+        .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
+
+    // let mut spi2 = p
+    //     .SPI2
+    //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
+
+    let flash = Flash::init(spi, cs_flash);
+    let mut flash = flash.unwrap();
+    flash.wakeup().unwrap();
+    flash.sleep().unwrap();
 
     // Initialize RTC
     let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, None).unwrap();
@@ -45,36 +70,37 @@ fn main() -> ! {
     blink(&mut led);
     blink(&mut led);
 
-    // 5 seconds of regular run mode
-    timer.start(5u32);
-    while let Err(nb::Error::WouldBlock) = timer.wait() {}
-    Exti::unpend(exti_line);
-    NVIC::unpend(pac::Interrupt::RTC);
+    // // 5 seconds of regular run mode
+    // timer.start(5u32);
+    // while let Err(nb::Error::WouldBlock) = timer.wait() {}
+    // Exti::unpend(exti_line);
+    // NVIC::unpend(pac::Interrupt::RTC);
 
-    blink(&mut led);
+    // blink(&mut led);
 
-    // 5 seconds of low-power run mode
-    pwr.enter_low_power_run_mode(rcc.clocks);
-    while let Err(nb::Error::WouldBlock) = timer.wait() {}
-    pwr.exit_low_power_run_mode();
-    Exti::unpend(exti_line);
-    NVIC::unpend(pac::Interrupt::RTC);
+    // // 5 seconds of low-power run mode
+    // pwr.enter_low_power_run_mode(rcc.clocks);
+    // while let Err(nb::Error::WouldBlock) = timer.wait() {}
+    // pwr.exit_low_power_run_mode();
+    // Exti::unpend(exti_line);
+    // NVIC::unpend(pac::Interrupt::RTC);
 
-    blink(&mut led);
+    // blink(&mut led);
 
-    // 5 seconds of sleep mode
-    exti.wait_for_irq(exti_line, pwr.sleep_mode(&mut scb));
-    timer.wait().unwrap(); // returns immediately; we just got the interrupt
+    // // 5 seconds of sleep mode
+    // exti.wait_for_irq(exti_line, pwr.sleep_mode(&mut scb));
+    // timer.wait().unwrap(); // returns immediately; we just got the interrupt
 
-    blink(&mut led);
+    // blink(&mut led);
 
-    // 5 seconds of low-power sleep mode
-    exti.wait_for_irq(exti_line, pwr.low_power_sleep_mode(&mut scb, &mut rcc));
-    timer.wait().unwrap(); // returns immediately; we just got the interrupt
+    // // 5 seconds of low-power sleep mode
+    // exti.wait_for_irq(exti_line, pwr.low_power_sleep_mode(&mut scb, &mut rcc));
+    // timer.wait().unwrap(); // returns immediately; we just got the interrupt
 
-    blink(&mut led);
+    // blink(&mut led);
 
-    // 5 seconds of stop mode
+    // 20 seconds of stop mode
+    timer.start(20u32);
     exti.wait_for_irq(
         exti_line,
         pwr.stop_mode(
