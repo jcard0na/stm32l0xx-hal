@@ -41,9 +41,9 @@ fn main() -> ! {
 
     supercap_read_en.set_low().unwrap();
 
-    let spi = dp
-        .SPI1
-        .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
+    // let spi = dp
+    //     .SPI1
+    //     .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
 
     // // let mut spi2 = p
     // //     .SPI2
