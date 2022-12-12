@@ -103,6 +103,14 @@ fn main() -> ! {
 
     // blink(&mut led);
 
+    // Disable all gpio clocks
+    rcc.iopenr.modify(|_, w| w.iopaen().disabled());
+    rcc.iopenr.modify(|_, w| w.iopben().disabled());
+    rcc.iopenr.modify(|_, w| w.iopcen().disabled());
+    rcc.iopenr.modify(|_, w| w.iopden().disabled());
+    rcc.iopenr.modify(|_, w| w.iopeen().disabled());
+    rcc.iopenr.modify(|_, w| w.iophen().disabled());
+
     // 20 seconds of stop mode
     timer.start(20u32);
     exti.wait_for_irq(
@@ -116,6 +124,7 @@ fn main() -> ! {
         ),
     );
     // blink to indicate we exited stop mode
+    rcc.iopenr.modify(|_, w| w.iopaen().enabled());
     blink(&mut led);
     timer.wait().unwrap(); // returns immediately; we just got the interrupt
 
