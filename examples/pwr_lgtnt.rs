@@ -71,11 +71,11 @@ fn main() -> ! {
 
     let spi = dp
         .SPI1
-        .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
+        .spi((sck, miso, mosi), MODE_0, 500_000.Hz(), &mut rcc);
 
     let mut spi2 = dp
         .SPI2
-        .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
+        .spi((sck2, miso2, mosi2), MODE_3, 500_000.Hz(), &mut rcc);
 
     let mut accelerometer = lis3dh_spi::Lis3dh::default();
     let mut accel_cfg1 = CtrlReg1Value::default();
@@ -139,35 +139,6 @@ fn main() -> ! {
 
     let mut timer = rtc.wakeup_timer();
 
-    // // 5 seconds of regular run mode
-    // timer.start(5u32);
-    // while let Err(nb::Error::WouldBlock) = timer.wait() {}
-    // Exti::unpend(exti_line);
-    // NVIC::unpend(pac::Interrupt::RTC);
-
-    // blink(&mut led);
-
-    // // 5 seconds of low-power run mode
-    // pwr.enter_low_power_run_mode(rcc.clocks);
-    // while let Err(nb::Error::WouldBlock) = timer.wait() {}
-    // pwr.exit_low_power_run_mode();
-    // Exti::unpend(exti_line);
-    // NVIC::unpend(pac::Interrupt::RTC);
-
-    // blink(&mut led);
-
-    // // 5 seconds of sleep mode
-    // exti.wait_for_irq(exti_line, pwr.sleep_mode(&mut scb));
-    // timer.wait().unwrap(); // returns immediately; we just got the interrupt
-
-    // blink(&mut led);
-
-    // // 5 seconds of low-power sleep mode
-    // exti.wait_for_irq(exti_line, pwr.low_power_sleep_mode(&mut scb, &mut rcc));
-    // timer.wait().unwrap(); // returns immediately; we just got the interrupt
-
-    // blink(&mut led);
-
     // Disable all gpio clocks
     rcc.iopenr.modify(|_, w| w.iopaen().disabled());
     rcc.iopenr.modify(|_, w| w.iopben().disabled());
@@ -196,6 +167,9 @@ fn main() -> ! {
     // enable clocks we need for LED and spi
     rcc.iopenr.modify(|_, w| w.iopaen().enabled());
     rcc.iopenr.modify(|_, w| w.iopben().enabled());
+
+    // enable spi1 clock so we can wake up flash
+    rcc.apb2enr.modify(|_, w| w.spi1en().enabled());
 
     // blink to indicate we exited stop mode
     blink(&mut led);
