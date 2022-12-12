@@ -14,7 +14,7 @@ use stm32l0xx_hal::{
     pwr::{self, PWR},
     rcc,
     rtc::{self, ClockSource, Rtc},
-    spi::MODE_0,
+    spi::{MODE_0, MODE_3},
 };
 
 
@@ -63,15 +63,19 @@ fn main() -> ! {
     let _ = gpiob.pb10.into_analog();
     let _ = gpiob.pb11.into_analog();
     let _ = gpiob.pb12.into_analog();
-    let _ = gpiob.pb13.into_analog();
-    let _ = gpiob.pb14.into_analog();
-    let _ = gpiob.pb15.into_analog();
+    let sck2 = gpiob.pb13;
+    let miso2 = gpiob.pb14;
+    let mosi2 = gpiob.pb15;
 
     supercap_read_en.set_low().unwrap();
 
-    let mut spi = dp
+    let spi = dp
         .SPI1
         .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
+
+    let mut spi2 = dp
+        .SPI2
+        .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
 
     let mut accelerometer = lis3dh_spi::Lis3dh::default();
     let mut accel_cfg1 = CtrlReg1Value::default();
@@ -86,10 +90,10 @@ fn main() -> ! {
     accel_cfg1.set_z_en(ZEn::ZAxisDisabled);
     accel_cfg1.set_output_data_rate(ODR::PowerDownMode);
     accelerometer.set_ctrl_reg1_setting(accel_cfg1);
-    accelerometer.write_all_settings(&mut cs_accel, &mut spi).ok();
+    accelerometer.write_all_settings(&mut cs_accel, &mut spi2).ok();
 
     if !accelerometer
-        .check_if_settings_are_written_correctly(&mut cs_accel, &mut spi)
+        .check_if_settings_are_written_correctly(&mut cs_accel, &mut spi2)
         .unwrap()
     {
         // NOTE: When the accelerometer is configured before epd.set_lut() command
