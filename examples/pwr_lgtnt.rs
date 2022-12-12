@@ -19,6 +19,9 @@ use stm32l0xx_hal::{
 
 
 use spi_memory::series25::Flash;
+use lis3dh_spi::{
+    ctrl_reg_1_value::{CtrlReg1Value, LPEn, XEn, YEn, ZEn, ODR},
+};
 
 #[entry]
 fn main() -> ! {
@@ -66,11 +69,39 @@ fn main() -> ! {
 
     supercap_read_en.set_low().unwrap();
 
-    let spi = dp
+    let mut spi = dp
         .SPI1
         .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
 
-    cs_accel.set_high().unwrap();
+    let mut accelerometer = lis3dh_spi::Lis3dh::default();
+    let mut accel_cfg1 = CtrlReg1Value::default();
+    accel_cfg1.set_x_en(XEn::XAxisDisabled);
+    accel_cfg1.set_y_en(YEn::YAxisDisabled);
+    accel_cfg1.set_z_en(ZEn::ZAxisDisabled);
+    accel_cfg1.set_output_data_rate(ODR::PowerDownMode);
+    accel_cfg1.set_l_p_en(LPEn::LowPowerEnabled);
+    accelerometer.set_ctrl_reg1_setting(accel_cfg1);
+    accelerometer.write_all_settings(&mut cs_accel, &mut spi).ok();
+
+    if !accelerometer
+        .check_if_settings_are_written_correctly(&mut cs_accel, &mut spi)
+        .unwrap()
+    {
+        // NOTE: When the accelerometer is configured before epd.set_lut() command
+        // is issued, we observe the accelerometer to transition into power down
+        // state (ODR all zeros).  If we go to sleep in that state, the
+        // we cannot respond to accel events.
+        // TODO: This is probably fixed in version 1.6, so we might be able to move
+        // up the accelerometer configuration.
+        blink(&mut led);
+        blink(&mut led);
+        blink(&mut led);
+        blink(&mut led);
+        blink(&mut led);
+        blink(&mut led);
+        blink(&mut led);
+    }
+
     // // let mut spi2 = p
     // //     .SPI2
     // //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
