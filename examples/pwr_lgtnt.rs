@@ -54,11 +54,11 @@ fn main() -> ! {
     blink(&mut led);
     cs_flash.set_high().unwrap();
     // problem: Flash::init tries to read status, which fails if flash is asleep
-    let flash = Flash::init(spi, cs_flash);
+    // let flash = Flash::init(spi, cs_flash);
     blink(&mut led);
-    let mut flash = flash.unwrap();
+    // let mut flash = flash.unwrap();
     blink(&mut led);
-    flash.sleep().unwrap();
+    // flash.sleep().unwrap();
     blink(&mut led);
 
     // Initialize RTC
@@ -115,14 +115,13 @@ fn main() -> ! {
             },
         ),
     );
+    // blink to indicate we exited stop mode
     blink(&mut led);
     timer.wait().unwrap(); // returns immediately; we just got the interrupt
 
-    flash.wakeup().unwrap();
+    // flash.wakeup().unwrap();
 
     // signal that we are entering standby mode
-    blink(&mut led);
-    blink(&mut led);
     blink(&mut led);
 
     // 5 seconds of standby mode
