@@ -147,10 +147,6 @@ fn main() -> ! {
     rcc.iopenr.modify(|_, w| w.iopeen().disabled());
     rcc.iopenr.modify(|_, w| w.iophen().disabled());
 
-    // disable spi clocks
-    rcc.apb1enr.modify(|_, w| w.spi2en().disabled());
-    rcc.apb2enr.modify(|_, w| w.spi1en().disabled());
-
     // 20 seconds of stop mode
     timer.start(20u32);
     exti.wait_for_irq(
