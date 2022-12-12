@@ -32,12 +32,37 @@ fn main() -> ! {
     let gpioa = dp.GPIOA.split(&mut rcc);
     let gpiob = dp.GPIOB.split(&mut rcc);
 
+    let _ = gpioa.pa0.into_analog();
+    let _ = gpioa.pa1.into_analog();
+    let _ = gpioa.pa2.into_analog();
     let mut supercap_read_en = gpioa.pa4.into_push_pull_output().downgrade();
+    let _ = gpioa.pa5.into_analog();
+    let _ = gpioa.pa6.into_analog();
+    let _ = gpioa.pa7.into_analog();
     let mut led = gpioa.pa8.into_push_pull_output().downgrade();
+    let _ = gpioa.pa9.into_analog();
+    let _ = gpioa.pa10.into_analog();
+    let _ = gpioa.pa12.into_analog();
+    // let _ = gpioa.pa13.into_analog();
+    // let _ = gpioa.pa14.into_analog();
+    let _ = gpioa.pa15.into_analog();
+
+    let _ = gpiob.pb0.into_analog();
+    let _ = gpiob.pb1.into_analog();
+    let _ = gpiob.pb2.into_analog();
     let sck = gpiob.pb3;
     let miso = gpiob.pb4;
     let mosi = gpiob.pb5;
     let mut cs_flash = gpiob.pb6.into_push_pull_output();
+    let _ = gpiob.pb7.into_analog();
+    let mut cs_accel = gpiob.pb8.into_push_pull_output();
+    let _ = gpiob.pb9.into_analog();
+    let _ = gpiob.pb10.into_analog();
+    let _ = gpiob.pb11.into_analog();
+    let _ = gpiob.pb12.into_analog();
+    let _ = gpiob.pb13.into_analog();
+    let _ = gpiob.pb14.into_analog();
+    let _ = gpiob.pb15.into_analog();
 
     supercap_read_en.set_low().unwrap();
 
@@ -45,6 +70,7 @@ fn main() -> ! {
         .SPI1
         .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
 
+    cs_accel.set_high().unwrap();
     // // let mut spi2 = p
     // //     .SPI2
     // //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
