@@ -33,7 +33,7 @@ fn main() -> ! {
     let gpiob = dp.GPIOB.split(&mut rcc);
 
     let mut supercap_read_en = gpioa.pa4.into_push_pull_output().downgrade();
-    let mut led = gpioa.pa7.into_push_pull_output().downgrade();
+    let mut led = gpioa.pa8.into_push_pull_output().downgrade();
     let sck = gpiob.pb3;
     let miso = gpiob.pb4;
     let mosi = gpiob.pb5;
@@ -53,11 +53,10 @@ fn main() -> ! {
     // hprintln!("one");
     blink(&mut led);
     cs_flash.set_high().unwrap();
+    // problem: Flash::init tries to read status, which fails if flash is asleep
     let flash = Flash::init(spi, cs_flash);
     blink(&mut led);
     let mut flash = flash.unwrap();
-    blink(&mut led);
-    flash.wakeup().unwrap();
     blink(&mut led);
     flash.sleep().unwrap();
     blink(&mut led);
@@ -74,10 +73,6 @@ fn main() -> ! {
     exti.listen_configurable(exti_line, TriggerEdge::Rising);
 
     let mut timer = rtc.wakeup_timer();
-
-    // Blink twice to signal the start of the program
-    // blink(&mut led);
-    blink(&mut led);
 
     // // 5 seconds of regular run mode
     // timer.start(5u32);
@@ -120,7 +115,10 @@ fn main() -> ! {
             },
         ),
     );
+    blink(&mut led);
     timer.wait().unwrap(); // returns immediately; we just got the interrupt
+
+    flash.wakeup().unwrap();
 
     // signal that we are entering standby mode
     blink(&mut led);
