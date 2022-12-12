@@ -41,9 +41,9 @@ fn main() -> ! {
 
     supercap_read_en.set_low().unwrap();
 
-    // let spi = dp
-    //     .SPI1
-    //     .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
+    let spi = dp
+        .SPI1
+        .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
 
     // // let mut spi2 = p
     // //     .SPI2
@@ -53,12 +53,11 @@ fn main() -> ! {
     // hprintln!("one");
     blink(&mut led);
     cs_flash.set_high().unwrap();
-    // problem: Flash::init tries to read status, which fails if flash is asleep
-    // let flash = Flash::init(spi, cs_flash);
+    let flash = Flash::init(spi, cs_flash);
     blink(&mut led);
-    // let mut flash = flash.unwrap();
+    let mut flash = flash.unwrap();
     blink(&mut led);
-    // flash.sleep().unwrap();
+    flash.sleep().unwrap();
     blink(&mut led);
 
     // Initialize RTC
@@ -128,7 +127,7 @@ fn main() -> ! {
     blink(&mut led);
     timer.wait().unwrap(); // returns immediately; we just got the interrupt
 
-    // flash.wakeup().unwrap();
+    flash.wakeup().unwrap();
 
     // signal that we are entering standby mode
     blink(&mut led);
