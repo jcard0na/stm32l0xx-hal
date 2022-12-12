@@ -122,8 +122,12 @@ fn main() -> ! {
             },
         ),
     );
-    // blink to indicate we exited stop mode
+
+    // enable clocks we need for LED and spi
     rcc.iopenr.modify(|_, w| w.iopaen().enabled());
+    rcc.iopenr.modify(|_, w| w.iopben().enabled());
+
+    // blink to indicate we exited stop mode
     blink(&mut led);
     timer.wait().unwrap(); // returns immediately; we just got the interrupt
 
