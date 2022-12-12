@@ -75,11 +75,16 @@ fn main() -> ! {
 
     let mut accelerometer = lis3dh_spi::Lis3dh::default();
     let mut accel_cfg1 = CtrlReg1Value::default();
+    // This configuration draws 73 uA, confirmed experimentally
+    // accel_cfg1.set_x_en(XEn::XAxisEnabled);
+    // accel_cfg1.set_y_en(YEn::YAxisEnabled);
+    // accel_cfg1.set_z_en(ZEn::ZAxisEnabled);
+    // accel_cfg1.set_output_data_rate(ODR::Hz400);
+    // This configuration draws 1 uA, confirmed experimentally
     accel_cfg1.set_x_en(XEn::XAxisDisabled);
     accel_cfg1.set_y_en(YEn::YAxisDisabled);
     accel_cfg1.set_z_en(ZEn::ZAxisDisabled);
     accel_cfg1.set_output_data_rate(ODR::PowerDownMode);
-    accel_cfg1.set_l_p_en(LPEn::LowPowerEnabled);
     accelerometer.set_ctrl_reg1_setting(accel_cfg1);
     accelerometer.write_all_settings(&mut cs_accel, &mut spi).ok();
 
