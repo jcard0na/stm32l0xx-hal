@@ -17,11 +17,8 @@ use stm32l0xx_hal::{
     spi::{MODE_0, MODE_3},
 };
 
-
+use lis3dh_spi::ctrl_reg_1_value::{CtrlReg1Value, XEn, YEn, ZEn, ODR};
 use spi_memory::series25::Flash;
-use lis3dh_spi::{
-    ctrl_reg_1_value::{CtrlReg1Value, LPEn, XEn, YEn, ZEn, ODR},
-};
 
 #[entry]
 fn main() -> ! {
@@ -56,7 +53,7 @@ fn main() -> ! {
     let sck = gpiob.pb3;
     let miso = gpiob.pb4;
     let mosi = gpiob.pb5;
-    let mut cs_flash = gpiob.pb6.into_push_pull_output();
+    let cs_flash = gpiob.pb6.into_push_pull_output();
     let _ = gpiob.pb7.into_analog();
     let mut cs_accel = gpiob.pb8.into_push_pull_output();
     let _ = gpiob.pb9.into_analog();
@@ -90,7 +87,9 @@ fn main() -> ! {
     accel_cfg1.set_z_en(ZEn::ZAxisDisabled);
     accel_cfg1.set_output_data_rate(ODR::PowerDownMode);
     accelerometer.set_ctrl_reg1_setting(accel_cfg1);
-    accelerometer.write_all_settings(&mut cs_accel, &mut spi2).ok();
+    accelerometer
+        .write_all_settings(&mut cs_accel, &mut spi2)
+        .ok();
     blink(&mut led);
     if !accelerometer
         .check_if_settings_are_written_correctly(&mut cs_accel, &mut spi2)
@@ -111,6 +110,16 @@ fn main() -> ! {
         blink(&mut led);
     }
 
+    // release spi2
+    let (_, pins) = spi2.free();
+    let sck2 = pins.0;
+    // Mode 3, idle high
+    sck2.into_pull_up_input();
+    let miso2 = pins.1;
+    miso2.into_analog();
+    let mosi2 = pins.2;
+    mosi2.into_pull_down_input();
+
     // // let mut spi2 = p
     // //     .SPI2
     // //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
@@ -121,6 +130,18 @@ fn main() -> ! {
     blink(&mut led);
     flash.sleep().unwrap();
     blink(&mut led);
+
+    // release spi1
+    let (spi, cs) = flash.release();
+    cs.into_pull_up_input();
+    let (_, pins) = spi.free();
+    let sck = pins.0;
+    // Mode 0, idle low
+    sck.into_pull_down_input();
+    let miso = pins.1;
+    miso.into_analog();
+    let mosi = pins.2;
+    mosi.into_pull_down_input();
 
     // Initialize RTC
     let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, None).unwrap();
