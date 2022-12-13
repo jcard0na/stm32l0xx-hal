@@ -91,7 +91,7 @@ fn main() -> ! {
     accel_cfg1.set_output_data_rate(ODR::PowerDownMode);
     accelerometer.set_ctrl_reg1_setting(accel_cfg1);
     accelerometer.write_all_settings(&mut cs_accel, &mut spi2).ok();
-
+    blink(&mut led);
     if !accelerometer
         .check_if_settings_are_written_correctly(&mut cs_accel, &mut spi2)
         .unwrap()
@@ -115,10 +115,6 @@ fn main() -> ! {
     // //     .SPI2
     // //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
 
-    cs_flash.set_low().unwrap();
-    // hprintln!("one");
-    blink(&mut led);
-    cs_flash.set_high().unwrap();
     let flash = Flash::init(spi, cs_flash);
     blink(&mut led);
     let mut flash = flash.unwrap();
@@ -139,35 +135,6 @@ fn main() -> ! {
 
     let mut timer = rtc.wakeup_timer();
 
-    // // 5 seconds of regular run mode
-    // timer.start(5u32);
-    // while let Err(nb::Error::WouldBlock) = timer.wait() {}
-    // Exti::unpend(exti_line);
-    // NVIC::unpend(pac::Interrupt::RTC);
-
-    // blink(&mut led);
-
-    // // 5 seconds of low-power run mode
-    // pwr.enter_low_power_run_mode(rcc.clocks);
-    // while let Err(nb::Error::WouldBlock) = timer.wait() {}
-    // pwr.exit_low_power_run_mode();
-    // Exti::unpend(exti_line);
-    // NVIC::unpend(pac::Interrupt::RTC);
-
-    // blink(&mut led);
-
-    // // 5 seconds of sleep mode
-    // exti.wait_for_irq(exti_line, pwr.sleep_mode(&mut scb));
-    // timer.wait().unwrap(); // returns immediately; we just got the interrupt
-
-    // blink(&mut led);
-
-    // // 5 seconds of low-power sleep mode
-    // exti.wait_for_irq(exti_line, pwr.low_power_sleep_mode(&mut scb, &mut rcc));
-    // timer.wait().unwrap(); // returns immediately; we just got the interrupt
-
-    // blink(&mut led);
-
     // Disable all gpio clocks
     rcc.iopenr.modify(|_, w| w.iopaen().disabled());
     rcc.iopenr.modify(|_, w| w.iopben().disabled());
@@ -178,38 +145,23 @@ fn main() -> ! {
 
     // 20 seconds of stop mode
     timer.start(20u32);
-    exti.wait_for_irq(
-        exti_line,
-        pwr.stop_mode(
-            &mut scb,
-            &mut rcc,
-            pwr::StopModeConfig {
-                ultra_low_power: true,
-            },
-        ),
-    );
 
-    // enable clocks we need for LED and spi
-    rcc.iopenr.modify(|_, w| w.iopaen().enabled());
-    rcc.iopenr.modify(|_, w| w.iopben().enabled());
-
-    // blink to indicate we exited stop mode
-    blink(&mut led);
-    timer.wait().unwrap(); // returns immediately; we just got the interrupt
-
-    flash.wakeup().unwrap();
-
-    // signal that we are entering standby mode
-    blink(&mut led);
-
-    // 5 seconds of standby mode
-    cortex_m::peripheral::NVIC::unpend(pac::Interrupt::RTC);
-    exti.wait_for_irq(exti_line, pwr.standby_mode(&mut scb));
-
-    // The microcontroller resets after leaving standby mode. We should never
-    // reach this point.
     loop {
+        exti.wait_for_irq(
+            exti_line,
+            pwr.stop_mode(
+                &mut scb,
+                &mut rcc,
+                pwr::StopModeConfig {
+                    ultra_low_power: true,
+                },
+            ),
+        );
+
+        // signal that we are entering standby mode
+        rcc.iopenr.modify(|_, w| w.iopaen().enabled());
         blink(&mut led);
+        rcc.iopenr.modify(|_, w| w.iopaen().disabled());
     }
 }
 
