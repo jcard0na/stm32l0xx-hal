@@ -15,15 +15,13 @@ use stm32l0xx_hal::{
     rtc::{self, ClockSource, Rtc},
 };
 
-use cortex_m_semihosting::hprintln;
+// use cortex_m_semihosting::hprintln;
 
 
 #[entry]
 fn main() -> ! {
     let cp = pac::CorePeripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
-
-    hprintln!("hello from pwr");
 
     let mut scb = cp.SCB;
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range0));
@@ -144,6 +142,18 @@ fn prepare_to_stop(rcc: &mut Rcc) {
 
         // Disable adc clock
         rcc.apb2enr.modify(|_, w| w.adcen().disabled());
+
+        // If you need to dump registers, you can do as:
+
+        // hprintln!("{:?}", p.RCC);
+        // and modify this function in
+        // ~/.cargo/registry/src/github.com-.../-0.15.1/src/stm32l0x3/mod.rs
+        // impl core::fmt::Debug for RCC {
+        // fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        // f.debug_struct("RCC")
+        // .field("baz", &self.baz)
+        // .finish()
+        //
     }
 }
 
