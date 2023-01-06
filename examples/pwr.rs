@@ -15,11 +15,15 @@ use stm32l0xx_hal::{
     rtc::{self, ClockSource, Rtc},
 };
 
+use cortex_m_semihosting::hprintln;
+
 
 #[entry]
 fn main() -> ! {
     let cp = pac::CorePeripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
+
+    hprintln!("hello from pwr");
 
     let mut scb = cp.SCB;
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range0));

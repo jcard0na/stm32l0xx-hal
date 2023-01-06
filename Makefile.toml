@@ -6,3 +6,8 @@ args = ["build", "--features", "mcu-STM32L051C8Tx,rt", "--release", "--example",
 command = "./openocd_flash.sh"
 args = ["target/thumbv6m-none-eabi/release/examples/${@}"]
 dependencies = ["build"]
+
+[tasks.semiflash]
+command = "./openocd_flash_monitor.sh"
+args = ["target/thumbv6m-none-eabi/release/examples/${@}"]
+dependencies = ["build"]
