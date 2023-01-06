@@ -3,6 +3,6 @@ command = "cargo"
 args = ["build", "--features", "mcu-STM32L051C8Tx,rt", "--release", "--example", "${@}"]
 
 [tasks.flash]
-command = "JRunExe"
-args = ["-device", "STM32L051C8", "-if", "SWD", "--semihost", "target/thumbv6m-none-eabi/release/examples/${@}"]
+command = "./openocd_flash.sh"
+args = ["target/thumbv6m-none-eabi/release/examples/${@}"]
 dependencies = ["build"]

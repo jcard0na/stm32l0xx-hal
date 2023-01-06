@@ -32,26 +32,10 @@ fn main() -> ! {
     let gpiob = dp.GPIOB.split(&mut rcc);
 
     let mut supercap_read_en = gpioa.pa4.into_push_pull_output().downgrade();
-    let mut led = gpioa.pa7.into_push_pull_output().downgrade();
-    let sck = gpiob.pb3;
-    let miso = gpiob.pb4;
-    let mosi = gpiob.pb5;
-    let mut cs_flash = gpiob.pb6.into_push_pull_output();
+    let mut rled = gpioa.pa5.into_push_pull_output().downgrade();
+    let mut gled = gpiob.pb4.into_push_pull_output().downgrade();
 
     supercap_read_en.set_low().unwrap();
-
-    let spi = dp
-        .SPI1
-        .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
-
-    // let mut spi2 = p
-    //     .SPI2
-    //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
-
-    let flash = Flash::init(spi, cs_flash);
-    let mut flash = flash.unwrap();
-    flash.wakeup().unwrap();
-    flash.sleep().unwrap();
 
     // Initialize RTC
     let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, None).unwrap();
@@ -67,8 +51,8 @@ fn main() -> ! {
     let mut timer = rtc.wakeup_timer();
 
     // Blink twice to signal the start of the program
-    blink(&mut led);
-    blink(&mut led);
+    blink(&mut rled);
+    blink(&mut gled);
 
     // // 5 seconds of regular run mode
     // timer.start(5u32);
@@ -114,18 +98,18 @@ fn main() -> ! {
     timer.wait().unwrap(); // returns immediately; we just got the interrupt
 
     // signal that we are entering standby mode
-    blink(&mut led);
-    blink(&mut led);
-    blink(&mut led);
+    blink(&mut rled);
+    blink(&mut gled);
+    blink(&mut rled);
 
-    // 5 seconds of standby mode
+    // 20 more seconds of standby mode
     cortex_m::peripheral::NVIC::unpend(pac::Interrupt::RTC);
     exti.wait_for_irq(exti_line, pwr.standby_mode(&mut scb));
 
     // The microcontroller resets after leaving standby mode. We should never
     // reach this point.
     loop {
-        blink(&mut led);
+        blink(&mut rled);
     }
 }
 
