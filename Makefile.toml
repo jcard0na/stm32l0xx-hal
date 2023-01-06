@@ -1,6 +1,6 @@
 [tasks.build]
 command = "cargo"
-args = ["build", "--features", "mcu-STM32L051C8Tx,rt", "--release", "--example", "${@}"]
+args = ["build", "--features", "mcu-STM32L053C8Tx,rt", "--release", "--example", "${@}"]
 
 [tasks.flash]
 command = "./openocd_flash.sh"
