@@ -178,8 +178,11 @@ fn main() -> ! {
                 },
             ),
         );
+        // next call will return immediately, as it was the timer interrupt that
+        // woke us up
+        timer.wait().unwrap();
 
-        // signal that we are entering standby mode
+        // give signs of life and go back to stop
         rcc.iopenr.modify(|_, w| w.iopaen().enabled());
         blink(&mut led);
         rcc.iopenr.modify(|_, w| w.iopaen().disabled());
