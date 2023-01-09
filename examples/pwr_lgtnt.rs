@@ -111,9 +111,7 @@ fn main() -> ! {
     }
 
     // release spi2
-    cs_accel.into_pull_up_input();
-    let (spi2, pins) = spi2.free();
-    spi2.cr1.modify(|_, w| w.spe().clear_bit());
+    let (_, pins) = spi2.free();
     let sck2 = pins.0;
     // Mode 3, idle high
     sck2.into_pull_up_input();
@@ -126,18 +124,17 @@ fn main() -> ! {
     // //     .SPI2
     // //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
 
-    // let flash = Flash::init(spi, cs_flash);
+    let flash = Flash::init(spi, cs_flash);
     blink(&mut led);
-    // let mut flash = flash.unwrap();
+    let mut flash = flash.unwrap();
     blink(&mut led);
-    // flash.sleep().unwrap();
+    flash.sleep().unwrap();
     blink(&mut led);
 
     // release spi1
-    // let (spi, cs_flash) = flash.release();
-    cs_flash.into_pull_up_input();
-    let (spi1, pins) = spi.free();
-    spi1.cr1.modify(|_, w| w.spe().clear_bit());
+    let (spi, cs) = flash.release();
+    cs.into_pull_up_input();
+    let (_, pins) = spi.free();
     let sck = pins.0;
     // Mode 0, idle low
     sck.into_pull_down_input();
