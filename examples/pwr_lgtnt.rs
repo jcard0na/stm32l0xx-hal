@@ -55,13 +55,16 @@ fn main() -> ! {
     let cs_flash = gpiob.pb6.into_push_pull_output();
     let _ = gpiob.pb7.into_analog();
     let mut cs_accel = gpiob.pb8.into_push_pull_output();
-    let _ = gpiob.pb9.into_analog();
+    let _accel_off = gpiob.pb9.into_pull_down_input();
     let _ = gpiob.pb10.into_analog();
     let _ = gpiob.pb11.into_analog();
     let _ = gpiob.pb12.into_analog();
     let sck2 = gpiob.pb13;
     let miso2 = gpiob.pb14;
     let mosi2 = gpiob.pb15;
+
+    // wait for accel to boot
+    delay();
 
     let spi = dp
         .SPI1
