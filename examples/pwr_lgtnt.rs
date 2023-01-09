@@ -18,7 +18,6 @@ use stm32l0xx_hal::{
 };
 
 use lis3dh_spi::ctrl_reg_1_value::{CtrlReg1Value, XEn, YEn, ZEn, ODR};
-use spi_memory::series25::Flash;
 
 #[entry]
 fn main() -> ! {
@@ -35,7 +34,7 @@ fn main() -> ! {
     let _ = gpioa.pa0.into_analog();
     let _ = gpioa.pa1.into_analog();
     let _ = gpioa.pa2.into_analog();
-    let mut supercap_read_en = gpioa.pa4.into_push_pull_output().downgrade();
+    let _supercap_read_en = gpioa.pa4.into_pull_down_input();
     let _ = gpioa.pa5.into_analog();
     let _ = gpioa.pa6.into_analog();
     let _ = gpioa.pa7.into_analog();
@@ -63,8 +62,6 @@ fn main() -> ! {
     let sck2 = gpiob.pb13;
     let miso2 = gpiob.pb14;
     let mosi2 = gpiob.pb15;
-
-    supercap_read_en.set_low().unwrap();
 
     let spi = dp
         .SPI1
