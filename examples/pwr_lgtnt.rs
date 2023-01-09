@@ -7,6 +7,7 @@ use cortex_m::asm;
 use cortex_m_rt::entry;
 // use cortex_m_semihosting::hprintln;
 use stm32l0xx_hal::{
+    delay::Delay,
     exti::{ConfigurableLine, Exti, TriggerEdge},
     gpio::{Output, Pin, PushPull},
     pac,
@@ -16,6 +17,12 @@ use stm32l0xx_hal::{
     rtc::{self, ClockSource, Rtc},
     spi::{MODE_0, MODE_3},
 };
+use spi_memory::series25::Flash;
+
+// For GDE015OC1 use:
+// use epd_waveshare::{epd1in54::*, prelude::*};
+// For GDEH0154D67 use:
+use epd_waveshare::{epd1in54_v2::*, prelude::*};
 
 use lis3dh_spi::ctrl_reg_1_value::{CtrlReg1Value, XEn, YEn, ZEn, ODR};
 
@@ -28,6 +35,7 @@ fn main() -> ! {
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range6));
     let mut exti = Exti::new(dp.EXTI);
     let mut pwr = PWR::new(dp.PWR, &mut rcc);
+    let mut delay = Delay::new(cp.SYST, rcc.clocks);
     let gpioa = dp.GPIOA.split(&mut rcc);
     let gpiob = dp.GPIOB.split(&mut rcc);
 
@@ -46,16 +54,16 @@ fn main() -> ! {
     // let _ = gpioa.pa14.into_analog();
     let _ = gpioa.pa15.into_analog();
 
-    let _ = gpiob.pb0.into_analog();
-    let _ = gpiob.pb1.into_analog();
-    let _ = gpiob.pb2.into_analog();
+    let rst = gpiob.pb0.into_push_pull_output();
+    let dc = gpiob.pb1.into_push_pull_output();
+    let cs_epd = gpiob.pb2.into_push_pull_output();
     let sck = gpiob.pb3;
     let miso = gpiob.pb4;
     let mosi = gpiob.pb5;
     let cs_flash = gpiob.pb6.into_push_pull_output();
-    let _ = gpiob.pb7.into_analog();
+    let busy_in = gpiob.pb7.into_floating_input();
     let mut cs_accel = gpiob.pb8.into_push_pull_output();
-    let _accel_off = gpiob.pb9.into_pull_down_input();
+    let accel_off = gpiob.pb9.into_pull_down_input();
     let _ = gpiob.pb10.into_analog();
     let _ = gpiob.pb11.into_analog();
     let _ = gpiob.pb12.into_analog();
@@ -64,9 +72,9 @@ fn main() -> ! {
     let mosi2 = gpiob.pb15;
 
     // wait for accel to boot
-    delay();
+    delay.delay_ms(1u32);
 
-    let spi = dp
+    let mut spi = dp
         .SPI1
         .spi((sck, miso, mosi), MODE_0, 2_000_000.Hz(), &mut rcc);
 
@@ -120,9 +128,13 @@ fn main() -> ! {
     let mosi2 = pins.2;
     mosi2.into_pull_down_input();
 
-    // // let mut spi2 = p
-    // //     .SPI2
-    // //     .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
+    // turn off accelerator
+    accel_off.into_analog();
+
+    // put display to sleep
+    let mut epd =
+        Epd1in54::new(&mut spi, cs_epd, busy_in, dc, rst, &mut delay, None).unwrap();
+    epd.sleep(&mut spi, &mut delay).unwrap();
 
     let flash = Flash::init(spi, cs_flash);
     blink(&mut led);
@@ -191,12 +203,12 @@ fn main() -> ! {
 
 fn blink(led: &mut Pin<Output<PushPull>>) {
     led.set_high().unwrap();
-    delay();
+    delay_busy();
     led.set_low().unwrap();
-    delay();
+    delay_busy();
 }
 
-fn delay() {
+fn delay_busy() {
     // We can't use `Delay`, as that requires a frequency of at least one MHz.
     // Given our clock selection, the following loop should give us a nice delay
     // when compiled in release mode.
