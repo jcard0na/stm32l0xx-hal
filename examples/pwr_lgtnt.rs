@@ -24,7 +24,7 @@ use spi_memory::series25::Flash;
 // For GDEH0154D67 use:
 use epd_waveshare::{epd1in54_v2::*, prelude::*};
 
-use lis3dh_spi::ctrl_reg_1_value::{CtrlReg1Value, XEn, YEn, ZEn, ODR};
+use lis3dh_spi::ctrl_reg_1_value::{CtrlReg1Value, XEn, YEn, ZEn, ODR, LPEn};
 
 #[entry]
 fn main() -> ! {
@@ -84,16 +84,19 @@ fn main() -> ! {
 
     let mut accelerometer = lis3dh_spi::Lis3dh::default();
     let mut accel_cfg1 = CtrlReg1Value::default();
-    // This configuration draws 73 uA, confirmed experimentally
-    // accel_cfg1.set_x_en(XEn::XAxisEnabled);
-    // accel_cfg1.set_y_en(YEn::YAxisEnabled);
-    // accel_cfg1.set_z_en(ZEn::ZAxisEnabled);
-    // accel_cfg1.set_output_data_rate(ODR::Hz400);
-    // This configuration draws 1 uA, confirmed experimentally
-    accel_cfg1.set_x_en(XEn::XAxisDisabled);
-    accel_cfg1.set_y_en(YEn::YAxisDisabled);
-    accel_cfg1.set_z_en(ZEn::ZAxisDisabled);
-    accel_cfg1.set_output_data_rate(ODR::PowerDownMode);
+    // This disables the accelerometer.  Useful to measure the absolute
+    // lowest current draw.
+    // accel_cfg1.set_x_en(XEn::XAxisDisabled);
+    // accel_cfg1.set_y_en(YEn::YAxisDisabled);
+    // accel_cfg1.set_z_en(ZEn::ZAxisDisabled);
+    // accel_cfg1.set_output_data_rate(ODR::PowerDownMode);
+    // Measured that this configuration draws 10 uA over previous (disabled)
+    // configuration:
+    accel_cfg1.set_x_en(XEn::XAxisEnabled);
+    accel_cfg1.set_y_en(YEn::YAxisEnabled);
+    accel_cfg1.set_z_en(ZEn::ZAxisEnabled);
+    accel_cfg1.set_output_data_rate(ODR::Hz100);
+    accel_cfg1.set_l_p_en(LPEn::LowPowerEnabled);
     accelerometer.set_ctrl_reg1_setting(accel_cfg1);
     accelerometer
         .write_all_settings(&mut cs_accel, &mut spi2)
