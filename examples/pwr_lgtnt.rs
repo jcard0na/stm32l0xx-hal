@@ -242,10 +242,14 @@ fn main() -> ! {
     rcc.apb2smenr.modify(|_, w| w.spi1smen().disabled());
     rcc.apb2smenr.modify(|_, w| w.adcsmen().disabled());
     rcc.ahbsmenr.modify(|_, w| w.mifsmen().disabled());
+    let adc = adc.release();
+    adc.cr.modify(|_, w| w.aden().clear_bit());
+    adc.cr.modify(|_, w| w.advregen().clear_bit());
 
     // hprintln!("apb1smenr: {:08x}", rcc.apb1smenr.read().bits());
     // hprintln!("apb2smenr: {:08x}", rcc.apb2smenr.read().bits());
     // hprintln!("ahbsmenr: {:08x}", rcc.ahbsmenr.read().bits());
+    // hprintln!("adc.cr: {:08x}", adc.cr.read().bits());
 
     loop {
         interrupt::free(|_| {
