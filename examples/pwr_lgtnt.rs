@@ -12,13 +12,16 @@ use stm32l0xx_hal::{
     adc::Adc,
     delay::Delay,
     exti::{ConfigurableLine, Exti, ExtiLine, GpioLine, TriggerEdge},
-    gpio::{Output, Pin, PushPull},
-    pac,
+    gpio::{
+        gpiob::{PB13, PB14, PB15, PB8},
+        Analog, Output, Pin, PushPull,
+    },
+    pac::{self, SPI2},
     prelude::*,
     pwr::{self, PWR},
     rcc::{self, SMEnable},
     rtc::{self, ClockSource, Rtc},
-    spi::{MODE_0, MODE_3},
+    spi::{Spi, MODE_0, MODE_3},
     syscfg::SYSCFG,
 };
 
@@ -27,7 +30,17 @@ use stm32l0xx_hal::{
 // For GDEH0154D67 use:
 use epd_waveshare::{epd1in54_v2::*, prelude::*};
 
-use lis3dh_spi::ctrl_reg_1_value::{CtrlReg1Value, LPEn, XEn, YEn, ZEn, ODR};
+use lis3dh_spi::{
+    ctrl_reg_1_value::{CtrlReg1Value, LPEn, XEn, YEn, ZEn, ODR},
+    ctrl_reg_2_value::{CtrlReg2Value, FilteredDataSelection, HighPassFilter},
+    ctrl_reg_3_value::CtrlReg3Value,
+    ctrl_reg_4_value::{CtrlReg4Value, FullScaleSelection},
+    ctrl_reg_5_value::CtrlReg5Value,
+    enabled_enum::OnOff,
+    int_cfg::IntCfg,
+    int_duration_value::IntDuration,
+    int_ths_value::IntThs,
+};
 
 #[entry]
 fn main() -> ! {
@@ -52,7 +65,7 @@ fn main() -> ! {
 
     let mut solar_in = gpioa.pa0.into_analog();
     let _ = gpioa.pa1.into_analog();
-    let _ = gpioa.pa2.into_analog();
+    let accel_int1 = gpioa.pa2.into_floating_input();
     let _supercap_read_en = gpioa.pa4.into_pull_down_input();
     let _ = gpioa.pa5.into_analog();
     let _ = gpioa.pa6.into_analog();
@@ -114,24 +127,7 @@ fn main() -> ! {
         .spi((sck2, miso2, mosi2), MODE_3, 2_000_000.Hz(), &mut rcc);
 
     let mut accelerometer = lis3dh_spi::Lis3dh::default();
-    let mut accel_cfg1 = CtrlReg1Value::default();
-    // This disables the accelerometer.  Useful to measure the absolute
-    // lowest current draw.
-    // accel_cfg1.set_x_en(XEn::XAxisDisabled);
-    // accel_cfg1.set_y_en(YEn::YAxisDisabled);
-    // accel_cfg1.set_z_en(ZEn::ZAxisDisabled);
-    // accel_cfg1.set_output_data_rate(ODR::PowerDownMode);
-    // Measured that this configuration draws 10 uA over previous (disabled)
-    // configuration:
-    accel_cfg1.set_x_en(XEn::XAxisEnabled);
-    accel_cfg1.set_y_en(YEn::YAxisEnabled);
-    accel_cfg1.set_z_en(ZEn::ZAxisEnabled);
-    accel_cfg1.set_output_data_rate(ODR::Hz100);
-    accel_cfg1.set_l_p_en(LPEn::LowPowerEnabled);
-    accelerometer.set_ctrl_reg1_setting(accel_cfg1);
-    accelerometer
-        .write_all_settings(&mut cs_accel, &mut spi2)
-        .ok();
+    accel_config(&mut accelerometer, &mut cs_accel, &mut spi2);
     blink(&mut led);
     if !accelerometer
         .check_if_settings_are_written_correctly(&mut cs_accel, &mut spi2)
@@ -162,8 +158,8 @@ fn main() -> ! {
     let mosi2 = pins.2;
     mosi2.into_pull_down_input();
 
-    // turn off accelerator
-    accel_off.into_analog();
+    // leave accelerator on
+    accel_off.into_pull_down_input();
 
     // put display to sleep
     let mut epd = Epd1in54::new(&mut spi, cs_epd, busy_in, dc, rst, &mut delay, None).unwrap();
@@ -216,8 +212,18 @@ fn main() -> ! {
     );
     let solar_interrupt = solar_line.interrupt();
 
+    // Wake up on accelerometer gestures
+    let accel_line = GpioLine::from_raw_line(accel_int1.pin_number()).unwrap();
+    exti.listen_gpio(
+        &mut syscfg,
+        accel_int1.port(),
+        accel_line,
+        TriggerEdge::Rising,
+    );
+    let accel_interrupt = accel_line.interrupt();
+
     // Disable all gpio clocks
-    // rcc.iopenr.modify(|_, w| w.iopaen().disabled());
+    rcc.iopenr.modify(|_, w| w.iopaen().disabled());
     rcc.iopenr.modify(|_, w| w.iopben().disabled());
     rcc.iopenr.modify(|_, w| w.iopcen().disabled());
     rcc.iopenr.modify(|_, w| w.iopden().disabled());
@@ -229,6 +235,7 @@ fn main() -> ! {
             unsafe {
                 NVIC::unmask(solar_interrupt);
                 NVIC::unmask(rtc_interrupt);
+                NVIC::unmask(accel_interrupt);
             }
             pwr.stop_mode(
                 &mut scb,
@@ -243,6 +250,11 @@ fn main() -> ! {
                 Exti::unpend(solar_line);
                 NVIC::unpend(solar_interrupt);
                 NVIC::mask(solar_interrupt);
+            }
+            if Exti::is_pending(accel_line) {
+                Exti::unpend(accel_line);
+                NVIC::unpend(accel_interrupt);
+                NVIC::mask(accel_interrupt);
             }
             if Exti::is_pending(rtc_line) {
                 // next call will return immediately, as it was the timer interrupt that
@@ -275,4 +287,85 @@ fn delay_busy() {
     for _ in 0..100_000 {
         asm::nop()
     }
+}
+
+// Configure the accelerator after a power-up or reset
+fn accel_config(
+    accelerometer: &mut lis3dh_spi::Lis3dh,
+    cs: &mut PB8<Output<PushPull>>,
+    spi: &mut Spi<SPI2, (PB13<Analog>, PB14<Analog>, PB15<Analog>)>,
+) -> () {
+    // Note: The pull-up disable will not persist: it returns back
+    // to enabled.  So disabling this or the accel configuration consistency
+    // check will fail.
+    //
+    // Disable internal pull-up on MISO pin
+    // let mut accel_cfg0 = CtrlReg0Value::default();
+    // // The semantics of this function is revered:  Enabled means disable pull-up!!
+    // accel_cfg0.set_pull_up_connected_sdo_sa_0_pin(OnOff::Enabled);
+    // accelerometer.set_ctrl_reg0_setting(accel_cfg0);
+
+    // Configuring accelerometer wakeup interrupt
+    // per AN5005, section 6.3.3
+    let mut accel_cfg1 = CtrlReg1Value::default();
+    accel_cfg1.set_x_en(XEn::XAxisEnabled);
+    accel_cfg1.set_y_en(YEn::YAxisEnabled);
+    accel_cfg1.set_z_en(ZEn::ZAxisEnabled);
+    accel_cfg1.set_output_data_rate(ODR::Hz100);
+    // Lowers resolution to 8-bits for lower power consumption (10 uA at 100Hz)
+    accel_cfg1.set_l_p_en(LPEn::LowPowerEnabled);
+    accelerometer.set_ctrl_reg1_setting(accel_cfg1);
+
+    // Enable high pass filter to make gestures independent of static
+    // orientation of device.  (i.e. otherwise, threshold would be
+    // constantly exceeded when device is laying on one of its sides)
+    let mut accel_cfg2 = CtrlReg2Value::default();
+    accel_cfg2.set_hp_ia1(HighPassFilter::FilterEnabled);
+    accel_cfg2.set_fds(FilteredDataSelection::InternalFilterSentToFifo);
+    accelerometer.set_ctrl_reg2_setting(accel_cfg2);
+
+    // Enable INT1
+    let mut accel_cfg3 = CtrlReg3Value::default();
+    accel_cfg3.set_interrupt_1_ia1(OnOff::Enabled);
+    accelerometer.set_ctrl_reg3_setting(accel_cfg3);
+
+    // Set full range to 2g
+    let mut accel_cfg4 = CtrlReg4Value::default();
+    accel_cfg4.set_fs(FullScaleSelection::Gravity2G);
+    accelerometer.set_ctrl_reg4_setting(accel_cfg4);
+
+    // Interrupt 1 pin NOT latched, so no need to clear
+    let mut accel_cfg5 = CtrlReg5Value::default();
+    accel_cfg5.set_latch_int_on_int_1_src(OnOff::Disabled);
+    accelerometer.set_ctrl_reg5_setting(accel_cfg5);
+
+    let mut intths = IntThs::default();
+    // 250 mg threshold
+    // intths.set_threshold(0x10).unwrap();
+    // 1g threshold
+    intths.set_threshold(0x40).unwrap();
+    accelerometer.set_int1_ths_setting(intths);
+
+    let mut intduration = IntDuration::default();
+    // duration is in ODRs, which at 100Hz corresponds to 1/100s
+    // this is the time the acceleration needs to remain above
+    // threshold to trigger an interrupt
+    intduration.set_duration(0).unwrap();
+    accelerometer.set_int1_duration_setting(intduration);
+
+    // this pushes all the configuration registers configured so far to
+    // the device
+    accelerometer.write_all_settings(cs, spi).ok();
+
+    // dummy read to force HP filter to load current acceleration
+    // values
+    let _ = accelerometer.get_reference_value(cs, spi);
+
+    // Enable high threshold value on X, Y only
+    let mut intcfg = IntCfg::default();
+    intcfg.set_xhie(OnOff::Enabled);
+    intcfg.set_yhie(OnOff::Enabled);
+    intcfg.set_aoi(OnOff::Disabled);
+    accelerometer.set_int1_cfg_setting(intcfg);
+    accelerometer.write_all_settings(cs, spi).ok();
 }
