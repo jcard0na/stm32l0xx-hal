@@ -113,6 +113,8 @@ fn main() -> ! {
     }
 
     let mut adc = Adc::new(dp.ADC, &mut rcc);
+    // a read too soon after Adc::new() can freeze
+    delay.delay_ms(1u32);
     let _dummy_read: u16 = adc.read(&mut solar_in).unwrap();
 
     // wait for accel to boot
@@ -163,6 +165,10 @@ fn main() -> ! {
 
     // put display to sleep
     let mut epd = Epd1in54::new(&mut spi, cs_epd, busy_in, dc, rst, &mut delay, None).unwrap();
+    epd.set_lut(&mut spi, &mut delay, Some(RefreshLut::Full))
+        .unwrap();
+    epd.clear_frame(&mut spi, &mut delay).unwrap();
+    epd.display_frame(&mut spi, &mut delay).unwrap();
     epd.sleep(&mut spi, &mut delay).unwrap();
 
     let flash = Flash::init(spi, cs_flash);
