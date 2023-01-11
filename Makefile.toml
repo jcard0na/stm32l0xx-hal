@@ -1,5 +1,6 @@
 [tasks.build]
 command = "cargo"
+# Building for L053 until this is merged: https://github.com/stm32-rs/stm32l0xx-hal/pull/222
 args = ["build", "--features", "mcu-STM32L053C8Tx,rt", "--release", "--example", "${@}"]
 
 [tasks.flash]

@@ -3,13 +3,15 @@
 
 use panic_halt as _; // you can put a breakpoint on `rust_begin_unwind` to catch panics
 
-use cortex_m::asm;
+use cortex_m::{asm, interrupt, peripheral::NVIC};
+
 use cortex_m_rt::entry;
 // use cortex_m_semihosting::hprintln;
+use spi_memory::series25::Flash;
 use stm32l0xx_hal::{
     adc::Adc,
     delay::Delay,
-    exti::{ConfigurableLine, Exti, TriggerEdge},
+    exti::{ConfigurableLine, Exti, ExtiLine, GpioLine, TriggerEdge},
     gpio::{Output, Pin, PushPull},
     pac,
     prelude::*,
@@ -17,15 +19,15 @@ use stm32l0xx_hal::{
     rcc,
     rtc::{self, ClockSource, Rtc},
     spi::{MODE_0, MODE_3},
+    syscfg::SYSCFG,
 };
-use spi_memory::series25::Flash;
 
 // For GDE015OC1 use:
 // use epd_waveshare::{epd1in54::*, prelude::*};
 // For GDEH0154D67 use:
 use epd_waveshare::{epd1in54_v2::*, prelude::*};
 
-use lis3dh_spi::ctrl_reg_1_value::{CtrlReg1Value, XEn, YEn, ZEn, ODR, LPEn};
+use lis3dh_spi::ctrl_reg_1_value::{CtrlReg1Value, LPEn, XEn, YEn, ZEn, ODR};
 
 #[entry]
 fn main() -> ! {
@@ -40,6 +42,7 @@ fn main() -> ! {
 
     let mut scb = cp.SCB;
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range6));
+    let mut syscfg = SYSCFG::new(dp.SYSCFG, &mut rcc);
     let mut exti = Exti::new(dp.EXTI);
     let mut pwr = PWR::new(dp.PWR, &mut rcc);
     let mut delay = Delay::new(cp.SYST, rcc.clocks);
@@ -96,7 +99,7 @@ fn main() -> ! {
     }
 
     let mut adc = Adc::new(dp.ADC, &mut rcc);
-    let dummy_read: u16 = adc.read(&mut solar_in).unwrap();
+    let _dummy_read: u16 = adc.read(&mut solar_in).unwrap();
 
     // wait for accel to boot
     delay.delay_ms(1u32);
@@ -162,8 +165,7 @@ fn main() -> ! {
     accel_off.into_analog();
 
     // put display to sleep
-    let mut epd =
-        Epd1in54::new(&mut spi, cs_epd, busy_in, dc, rst, &mut delay, None).unwrap();
+    let mut epd = Epd1in54::new(&mut spi, cs_epd, busy_in, dc, rst, &mut delay, None).unwrap();
     epd.sleep(&mut spi, &mut delay).unwrap();
 
     let flash = Flash::init(spi, cs_flash);
@@ -189,40 +191,67 @@ fn main() -> ! {
     let mut rtc = Rtc::new(dp.RTC, &mut rcc, &pwr, ClockSource::LSI, None).unwrap();
 
     // Enable interrupts
-    let exti_line = ConfigurableLine::RtcWakeup;
+    let rtc_line = ConfigurableLine::RtcWakeup;
     rtc.enable_interrupts(rtc::Interrupts {
         wakeup_timer: true,
         ..rtc::Interrupts::default()
     });
-    exti.listen_configurable(exti_line, TriggerEdge::Rising);
+    exti.listen_configurable(rtc_line, TriggerEdge::Rising);
+    let rtc_interrupt = rtc_line.interrupt();
 
     let mut timer = rtc.wakeup_timer();
 
+    // 20 seconds of stop mode
+    timer.start(20u32);
+
+    // To use solar_in as an interrupt, convert from analog to digital input
+    let solar_in = solar_in.into_floating_input();
+    let solar_line = GpioLine::from_raw_line(solar_in.pin_number()).unwrap();
+    exti.listen_gpio(
+        &mut syscfg,
+        solar_in.port(),
+        solar_line,
+        TriggerEdge::Rising,
+    );
+    let solar_interrupt = solar_line.interrupt();
+
     // Disable all gpio clocks
-    rcc.iopenr.modify(|_, w| w.iopaen().disabled());
+    // rcc.iopenr.modify(|_, w| w.iopaen().disabled());
     rcc.iopenr.modify(|_, w| w.iopben().disabled());
     rcc.iopenr.modify(|_, w| w.iopcen().disabled());
     rcc.iopenr.modify(|_, w| w.iopden().disabled());
     rcc.iopenr.modify(|_, w| w.iopeen().disabled());
     rcc.iopenr.modify(|_, w| w.iophen().disabled());
 
-    // 20 seconds of stop mode
-    timer.start(20u32);
-
     loop {
-        exti.wait_for_irq(
-            exti_line,
+        interrupt::free(|_| {
+            unsafe {
+                NVIC::unmask(solar_interrupt);
+                NVIC::unmask(rtc_interrupt);
+            }
             pwr.stop_mode(
                 &mut scb,
                 &mut rcc,
                 pwr::StopModeConfig {
                     ultra_low_power: true,
                 },
-            ),
-        );
-        // next call will return immediately, as it was the timer interrupt that
-        // woke us up
-        timer.wait().unwrap();
+            )
+            .enter();
+
+            if Exti::is_pending(solar_line) {
+                Exti::unpend(solar_line);
+                NVIC::unpend(solar_interrupt);
+                NVIC::mask(solar_interrupt);
+            }
+            if Exti::is_pending(rtc_line) {
+                // next call will return immediately, as it was the timer interrupt that
+                // woke us up
+                timer.wait().unwrap();
+                Exti::unpend(rtc_line);
+                NVIC::unpend(rtc_interrupt);
+                NVIC::mask(rtc_interrupt);
+            }
+        });
 
         // give signs of life and go back to stop
         rcc.iopenr.modify(|_, w| w.iopaen().enabled());
