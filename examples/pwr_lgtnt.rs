@@ -12,6 +12,7 @@ use stm32l0xx_hal::{
     adc::Adc,
     delay::Delay,
     exti::{ConfigurableLine, Exti, ExtiLine, GpioLine, TriggerEdge},
+    flash::FLASH,
     gpio::{
         gpiob::{PB13, PB14, PB15, PB8},
         Analog, Output, Pin, PushPull,
@@ -94,6 +95,8 @@ fn main() -> ! {
     let sck2 = gpiob.pb13;
     let miso2 = gpiob.pb14;
     let mosi2 = gpiob.pb15;
+
+    let _nvm = FLASH::new(dp.FLASH, &mut rcc);
 
     // Enable ACD in low frequency mode, needed because we run out of the MSI clock at 2MHz and
     // datasheet says this need to be enabled below 3.5 MHz
