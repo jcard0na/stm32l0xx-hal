@@ -7,6 +7,7 @@ use cortex_m::asm;
 use cortex_m_rt::entry;
 // use cortex_m_semihosting::hprintln;
 use stm32l0xx_hal::{
+    adc::Adc,
     delay::Delay,
     exti::{ConfigurableLine, Exti, TriggerEdge},
     gpio::{Output, Pin, PushPull},
@@ -31,6 +32,12 @@ fn main() -> ! {
     let cp = pac::CorePeripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
+    // If using MSI clock instead of HSI16, uncomment block below
+    // Enable ADC clock.  This is only needed when using PCLK as ADC clock
+    // The alternative is to use HSI16 clock, but system clock is MSI
+    // See https://github.com/stm32-rs/stm32l0xx-hal/issues/135
+    dp.RCC.apb2enr.modify(|_, w| w.adcen().set_bit());
+
     let mut scb = cp.SCB;
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range6));
     let mut exti = Exti::new(dp.EXTI);
@@ -39,7 +46,7 @@ fn main() -> ! {
     let gpioa = dp.GPIOA.split(&mut rcc);
     let gpiob = dp.GPIOB.split(&mut rcc);
 
-    let _ = gpioa.pa0.into_analog();
+    let mut solar_in = gpioa.pa0.into_analog();
     let _ = gpioa.pa1.into_analog();
     let _ = gpioa.pa2.into_analog();
     let _supercap_read_en = gpioa.pa4.into_pull_down_input();
@@ -70,6 +77,26 @@ fn main() -> ! {
     let sck2 = gpiob.pb13;
     let miso2 = gpiob.pb14;
     let mosi2 = gpiob.pb15;
+
+    // Enable ACD in low frequency mode, needed because we run out of the MSI clock at 2MHz and
+    // datasheet says this need to be enabled below 3.5 MHz
+    dp.ADC.ccr.modify(|_, w| w.lfmen().set_bit());
+
+    // Enable internal reference voltage
+    dp.ADC.ccr.modify(|_, w| w.vrefen().set_bit());
+
+    // Pick PCKL clock for ADC if using MSI
+    dp.ADC.cfgr2.modify(|_, w| w.ckmode().pclk());
+
+    // Calibrate ADC:  without this step, we get a 4% error in
+    // the calculation of VDD
+    dp.ADC.cr.modify(|_, w| w.adcal().set_bit());
+    while dp.ADC.isr.read().eocal().is_complete() {
+        delay.delay_us(1u32);
+    }
+
+    let mut adc = Adc::new(dp.ADC, &mut rcc);
+    let dummy_read: u16 = adc.read(&mut solar_in).unwrap();
 
     // wait for accel to boot
     delay.delay_ms(1u32);
