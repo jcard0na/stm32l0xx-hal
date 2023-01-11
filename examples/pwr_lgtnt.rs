@@ -206,15 +206,15 @@ fn main() -> ! {
     timer.start(20u32);
 
     // To use solar_in as an interrupt, convert from analog to digital input
-    // let solar_in = solar_in.into_floating_input();
-    // let solar_line = GpioLine::from_raw_line(solar_in.pin_number()).unwrap();
-    // exti.listen_gpio(
-    //     &mut syscfg,
-    //     solar_in.port(),
-    //     solar_line,
-    //     TriggerEdge::Rising,
-    // );
-    // let solar_interrupt = solar_line.interrupt();
+    let solar_in = solar_in.into_floating_input();
+    let solar_line = GpioLine::from_raw_line(solar_in.pin_number()).unwrap();
+    exti.listen_gpio(
+        &mut syscfg,
+        solar_in.port(),
+        solar_line,
+        TriggerEdge::Rising,
+    );
+    let solar_interrupt = solar_line.interrupt();
 
     // Disable all gpio clocks
     // rcc.iopenr.modify(|_, w| w.iopaen().disabled());
@@ -227,7 +227,7 @@ fn main() -> ! {
     loop {
         interrupt::free(|_| {
             unsafe {
-                // NVIC::unmask(solar_interrupt);
+                NVIC::unmask(solar_interrupt);
                 NVIC::unmask(rtc_interrupt);
             }
             pwr.stop_mode(
@@ -239,11 +239,11 @@ fn main() -> ! {
             )
             .enter();
 
-            // if Exti::is_pending(solar_line) {
-            //     Exti::unpend(solar_line);
-            //     NVIC::unpend(solar_interrupt);
-            //     NVIC::mask(solar_interrupt);
-            // }
+            if Exti::is_pending(solar_line) {
+                Exti::unpend(solar_line);
+                NVIC::unpend(solar_interrupt);
+                NVIC::mask(solar_interrupt);
+            }
             if Exti::is_pending(rtc_line) {
                 // next call will return immediately, as it was the timer interrupt that
                 // woke us up
