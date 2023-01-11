@@ -16,7 +16,7 @@ use stm32l0xx_hal::{
     pac,
     prelude::*,
     pwr::{self, PWR},
-    rcc,
+    rcc::{self, SMEnable},
     rtc::{self, ClockSource, Rtc},
     spi::{MODE_0, MODE_3},
     syscfg::SYSCFG,
@@ -43,6 +43,7 @@ fn main() -> ! {
     let mut scb = cp.SCB;
     let mut rcc = dp.RCC.freeze(rcc::Config::msi(rcc::MSIRange::Range6));
     let mut syscfg = SYSCFG::new(dp.SYSCFG, &mut rcc);
+    pac::SYSCFG::disable_in_sleep_mode(&mut rcc);
     let mut exti = Exti::new(dp.EXTI);
     let mut pwr = PWR::new(dp.PWR, &mut rcc);
     let mut delay = Delay::new(cp.SYST, rcc.clocks);
