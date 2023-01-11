@@ -236,6 +236,17 @@ fn main() -> ! {
     rcc.iopenr.modify(|_, w| w.iopeen().disabled());
     rcc.iopenr.modify(|_, w| w.iophen().disabled());
 
+    // configure rcc to disable all these when entering
+    // stop mode
+    rcc.apb1smenr.modify(|_, w| w.spi2smen().disabled());
+    rcc.apb2smenr.modify(|_, w| w.spi1smen().disabled());
+    rcc.apb2smenr.modify(|_, w| w.adcsmen().disabled());
+    rcc.ahbsmenr.modify(|_, w| w.mifsmen().disabled());
+
+    // hprintln!("apb1smenr: {:08x}", rcc.apb1smenr.read().bits());
+    // hprintln!("apb2smenr: {:08x}", rcc.apb2smenr.read().bits());
+    // hprintln!("ahbsmenr: {:08x}", rcc.ahbsmenr.read().bits());
+
     loop {
         interrupt::free(|_| {
             unsafe {
